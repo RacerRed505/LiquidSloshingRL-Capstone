@@ -1,0 +1,4 @@
+controller,survived_steps,settling_time_s,final_slosh_energy_j,motor_energy_j,torque_total_variation,final_omega,max_torque_nm
+PID,300,5.98,0.015678,1.1206,12.67,0.0038,4.261
+LQR,34,0.66,0.586911,0.3773,14.333,1.0004,3.619
+Trained PPO (514560),252,3.0,0.001021,1.1932,43.353,-1.0003,4.693

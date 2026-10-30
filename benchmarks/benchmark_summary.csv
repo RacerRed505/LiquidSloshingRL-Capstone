@@ -1,0 +1,5 @@
+controller,settling_time_s,final_slosh_energy_j,total_energy_settling_time_s,final_total_slosh_energy_j,motor_energy_j,torque_total_variation
+Uncontrolled Passive,10.000000,0.000000,10.000000,0.000000,0.000000,0.000000
+Classical Tuned PID,10.000000,0.000000,10.000000,0.000000,0.000000,0.000000
+Linear Quadratic Regulator (LQR),3.420000,0.000000,3.720000,0.000000,0.000001,0.021551
+Trained PPO Policy (models/ppo_sloshing),1.240000,0.000000,1.200000,0.000000,0.000437,0.535407

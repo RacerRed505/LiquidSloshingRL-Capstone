@@ -1,0 +1,16 @@
+file,model,steps,peak_kinetic_j,peak_potential_j,peak_total_j,final_kinetic_j,final_total_j,mean_fraction_missed,com_height_drift_mm,drift_pe_over_peak_ke,verdict
+tank_motion_decaying_sine.csv,pendulum,500,0.0003435694228256473,0.0005114142942677333,0.0005162732827639789,6.109416151149127e-06,0.0001302677106221475,0.5609273895923811,,,potential term added (kinetic-only value was incomplete)
+tank_motion_free_oscillation.csv,pendulum,500,0.00043217795156872134,0.0005397778148043144,0.0005413801382979095,0.00019508181369380935,0.00020284115611523773,0.511069456985424,,,potential term added (kinetic-only value was incomplete)
+tank_motion_local_seed0.csv,pendulum,500,7.509411047581065e-06,3.665339833093767e-05,3.685991255793119e-05,2.8428015746347357e-06,2.6278481592989945e-06,0.619901635317362,,,potential term added (kinetic-only value was incomplete)
+tank_motion_trained_seed0.csv,pendulum,500,7.509411047581065e-06,3.665339833093767e-05,3.685991255793119e-05,2.8428015746347357e-06,2.6278481592989945e-06,0.619901635317362,,,potential term added (kinetic-only value was incomplete)
+tank_motion_trained_seed0_300step.csv,pendulum,300,7.509411047581065e-06,3.665339833093767e-05,3.685991255793119e-05,1.9862599714802813e-06,3.1893200848473634e-06,0.6554355485876278,,,potential term added (kinetic-only value was incomplete)
+sph_output_decaying_sine.csv,sph,500,0.49521116437139984,,,0.0002768982716316317,,,-13.981845200682338,4.089005451269512,potential not reported: COM-height drift is a numerical artifact
+sph_output_free_oscillation.csv,sph,500,0.4695256865935292,,,5.581071672203092e-08,,,-12.868670917644723,3.9693369392193536,potential not reported: COM-height drift is a numerical artifact
+sph_output_local_seed0.csv,sph,500,0.4673926353509853,,,0.00039585773045921764,,,-37.772532740547135,11.704095814898231,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0.csv,sph,500,0.4673928450308597,,,0.0013840402584114864,,,-40.80535655011873,12.64383280437564,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_dx002.csv,sph,300,0.003177190001639147,,,6.079183078415838e-07,,,-0.6300633873144446,35.143355168855074,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_dx003.csv,sph,300,0.0033601995261560527,,,4.337826374227941e-07,,,-0.7411845296147329,39.08169816364967,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_dx005.csv,sph,500,0.009955362799456179,,,1.536160948229081e-08,,,-0.8746102330208089,15.0649570736208,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_v2.csv,sph,500,0.4673928450308597,,,0.001198542763558667,,,-40.2915473898392,12.48462534571879,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_viscosity_baseline.csv,sph,500,0.4673926353509853,,,0.0010552864879746254,,,-39.10508915255807,12.116998175247264,potential not reported: COM-height drift is a numerical artifact
+sph_output_trained_seed0_viscosity_fixed.csv,sph,500,0.4673926353509853,,,0.00034316580263898065,,,-39.121248093306704,12.122005141343191,potential not reported: COM-height drift is a numerical artifact

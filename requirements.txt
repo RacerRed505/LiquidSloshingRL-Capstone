@@ -1,0 +1,31 @@
+# Phase 4-5 dependencies.
+# NOTE: pychrono is NOT pip-installable -- it is a compiled package
+# distributed only via conda-forge. Install it separately with:
+#   conda install -c conda-forge pychrono
+# (There is an unrelated package also named "pychrono" on PyPI -- do not
+# `pip install pychrono`, it is not Project Chrono.)
+
+numpy>=1.24
+pytest>=7.4
+
+# control/lqr_controller.py dependency (solve_continuous_are for the LQR
+# Riccati solve). Plain pip-installable, no conda-forge needed.
+scipy>=1.10
+
+# Phase 8 dependency (environment/, Gymnasium environment wrapper). Unlike
+# pychrono, this IS plain pip-installable -- no conda-forge needed.
+gymnasium>=0.29
+
+# Phase 9 dependency (training/, evaluation/, PPO training). Also plain
+# pip-installable.
+stable-baselines3>=2.0
+
+# Optional: only needed if TrainingConfig.tensorboard_log_dir is non-empty
+# (see training/train_ppo.py -- training runs fine without this, just
+# without TensorBoard logs).
+# tensorboard>=2.0
+
+# Phase 11 dependency (scripts/compare_trajectories.py's plot output
+# only) -- optional: the script still writes its CSV and logs a warning
+# without this installed, it just skips the .png.
+# matplotlib>=3.7

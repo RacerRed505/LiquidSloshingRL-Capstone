@@ -1,0 +1,5 @@
+controller,settling_time_s,final_slosh_energy_j,motor_energy_j,torque_total_variation
+Uncontrolled Passive,10.000000,0.000000,0.000000,0.000000
+Classical Tuned PID (sensor-only, unchanged),10.000000,0.000000,0.000000,0.000000
+LQR (FAIR: pressure-tap observation only),3.740000,0.000000,0.000001,0.021649
+Trained PPO Policy, observable (models/ppo_sloshing_observable),0.740000,0.000000,0.000706,0.508346
