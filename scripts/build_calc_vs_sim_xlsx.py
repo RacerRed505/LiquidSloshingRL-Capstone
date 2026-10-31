@@ -78,6 +78,74 @@ def math(text, size=11, italic=False, color="000000"):
     return CellRichText(parts)
 
 
+# Typeset equations for the "Formula" column of the hand-calculation sheet (row -> mathtext).
+# Each is drawn as a picture, like an equation-editor formula, because a cell can only hold
+# plain text; the text version stays in the cell underneath in case matplotlib is missing.
+EQUATIONS = {
+    16: r"$m = \rho\,L\,W\,H$",
+    17: r"$\dfrac{L}{H}$",
+    18: r"$m_i = \dfrac{\tanh(0.866\,L/H)}{0.866\,L/H}\;m$",
+    19: r"$m_c = 0.264\,\dfrac{L}{H}\,\tanh\!\left(3.16\,\dfrac{H}{L}\right) m$",
+    20: r"$h_i = \left(0.5 - 0.09375\,\dfrac{L}{H}\right) H \quad (L/H \geq 1.333)$",
+    21: r"$h_c = \left[1 - \dfrac{\cosh y - 1}{y\,\sinh y}\right] H, \quad y = 3.16\,\dfrac{H}{L}$",
+    22: r"$\omega_n = \sqrt{\dfrac{3.16\,g}{L}\,\tanh\!\left(3.16\,\dfrac{H}{L}\right)}$",
+    23: r"$f_n = \dfrac{\omega_n}{2\pi}$",
+    24: r"$L_p = \dfrac{g}{\omega_n^{\,2}}$",
+    25: r"$\dfrac{m_i + m_c}{m}$",
+    28: r"$L_{in} = L - 2t$",
+    29: r"$\omega_1 = \sqrt{\dfrac{\pi\,g}{L_{in}}\,\tanh\!\left(\dfrac{\pi\,H}{L_{in}}\right)}$",
+    30: r"$f_1 = \dfrac{\omega_1}{2\pi}$",
+    33: r"$\Omega_{max} = 2\pi\,A\,f_d$",
+    34: r"$Fr = \dfrac{\Omega_{max}\,(L/2)}{\sqrt{g\,H}}$",
+    35: r"$\eta_{max} = L_p\,\sin\theta_w$",
+    36: r"$Re = \dfrac{\rho\,\omega_n\,\eta_{max}\,L}{\mu}$",
+}
+
+
+def add_equations(ws, column="B", max_width_px=330):
+    """Draw each EQUATIONS entry as an image in its Formula cell and size the row to fit."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from openpyxl.drawing.image import Image as XLImage
+        from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
+    except ImportError:
+        return  # keep the plain-text formulas
+    from io import BytesIO
+    from PIL import Image as PILImage
+    dpi = 200
+    for row, tex in EQUATIONS.items():
+        fig = plt.figure()
+        fig.text(0, 0, tex, fontsize=12)
+        buf = BytesIO()
+        fig.savefig(buf, dpi=dpi, bbox_inches="tight", pad_inches=0.04, transparent=False, facecolor="white")
+        plt.close(fig)
+        buf.seek(0)
+        w_px, h_px = PILImage.open(buf).size
+        buf.seek(0)
+        img = XLImage(buf)
+        scale = 96 / dpi
+        img.width, img.height = w_px * scale, h_px * scale
+        if img.width > max_width_px:
+            k = max_width_px / img.width
+            img.width, img.height = img.width * k, img.height * k
+        ws.cell(row=row, column=2).value = None
+        # Two-cell anchor from the top-left to the bottom of this one cell, so the picture
+        # stays inside its own row in both Excel and LibreOffice.
+        row_pt = max(15, img.height * 0.75 + 6)
+        ws.row_dimensions[row].height = row_pt
+        emu = 9525  # EMU per pixel
+        col0 = ord(column) - ord("A")
+        start = AnchorMarker(col=col0, colOff=4 * emu, row=row - 1, rowOff=3 * emu)
+        end = AnchorMarker(col=col0, colOff=int((img.width + 4) * emu), row=row - 1,
+                           rowOff=int((img.height + 3) * emu))
+        img.anchor = TwoCellAnchor(editAs="oneCell", _from=start, to=end)
+        ws.add_image(img)
+        for col in (1, 3):
+            ws.cell(row=row, column=col).alignment = Alignment(vertical="center")
+
+
 # How each input's symbol is displayed (the plain key is still used for cell references).
 SYMBOL = {"rho_t": "ρ_{t}", "rho": "ρ", "mu": "μ", "f_d": "f_{d}", "theta_w": "θ_{w}", "zeta": "ζ"}
 
@@ -231,6 +299,13 @@ def build() -> None:
     hc["A37"] = "Fr << 0.2 means small, smooth (linear) sloshing; Re ~1e4-1e5 is typical of lab-scale water sloshing."
     hc["A37"].font = NOTE
     hc.column_dimensions["A"].width = 52
+
+    add_equations(hc)
+    # Fix every other row's height too: if an app auto-grows a wrapped header row after placing
+    # the equation pictures, everything below would slide away from its picture.
+    for r in range(1, hc.max_row + 1):
+        if hc.row_dimensions[r].height is None:
+            hc.row_dimensions[r].height = {1: 22, 4: 30}.get(r, 15)
 
     # --------------------------------------------------- Comparison sheet
     cs = wb.create_sheet("Calc vs Simulation", 0)
