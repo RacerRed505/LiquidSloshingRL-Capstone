@@ -6,7 +6,7 @@ simulations actually produced, with % error (second-review item
 
 Inputs are read from config/simulation_config.py so the workbook always
 matches the code. Simulation-side values are the real numbers the code or a
-logged run produced; each row names its source (file or PROJECT_LOG entry).
+logged run produced; each row names its source.
 
     python -m scripts.build_calc_vs_sim_xlsx
     # Formulas are verified with pycel (LibreOffice could not open files in the
@@ -18,6 +18,8 @@ from __future__ import annotations
 import os
 
 from openpyxl import Workbook
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -49,6 +51,35 @@ HEAD_FILL = PatternFill("solid", fgColor="DCE6F1")
 SIM_FILL = PatternFill("solid", fgColor="F2F2F2")
 THIN = Side(style="thin", color="BFBFBF")
 BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+
+
+def math(text, size=11, italic=False, color="000000"):
+    """Write maths with real sub/superscripts: "m_{i}" and "L^{2}" become rich text.
+
+    Plain strings without _{...} or ^{...} are returned unchanged."""
+    if "_{" not in text and "^{" not in text:
+        return text
+    parts, buf, i = [], "", 0
+    base = dict(rFont=FONT, sz=size, i=italic, color=color)
+    while i < len(text):
+        if text[i] in "_^" and text[i + 1:i + 2] == "{":
+            j = text.index("}", i)
+            if buf:
+                parts.append(TextBlock(InlineFont(**base), buf))
+                buf = ""
+            align = "subscript" if text[i] == "_" else "superscript"
+            parts.append(TextBlock(InlineFont(vertAlign=align, **base), text[i + 2:j]))
+            i = j + 1
+        else:
+            buf += text[i]
+            i += 1
+    if buf:
+        parts.append(TextBlock(InlineFont(**base), buf))
+    return CellRichText(parts)
+
+
+# How each input's symbol is displayed (the plain key is still used for cell references).
+SYMBOL = {"rho_t": "ρ_{t}", "rho": "ρ", "mu": "μ", "f_d": "f_{d}", "theta_w": "θ_{w}", "zeta": "ζ"}
 
 
 def header(ws, row, labels, widths=None):
@@ -84,20 +115,20 @@ def build() -> None:
         ("Tank outer width", "W", tank.width, "m", "TankConfig.width"),
         ("Tank wall height", "h", tank.height, "m", "TankConfig.height"),
         ("Wall thickness", "t", tank.wall_thickness, "m", "TankConfig.wall_thickness (6 mm cast acrylic)"),
-        ("Acrylic density", "rho_t", tank.density, "kg/m^3", "TankConfig.density (PMMA)"),
+        ("Acrylic density", "rho_t", tank.density, "kg/m³", "TankConfig.density (PMMA)"),
         ("Water fill height", "H", fluid.fill_height, "m", "FluidConfig.fill_height"),
-        ("Water density", "rho", fluid.density, "kg/m^3", "FluidConfig.density"),
-        ("Gravity", "g", g, "m/s^2", "WorldConfig.gravity"),
-        ("Water dynamic viscosity (20 C)", "mu", 1.0e-3, "Pa s", "Standard property; scripts/compute_nondimensional_numbers.py"),
+        ("Water density", "rho", fluid.density, "kg/m³", "FluidConfig.density"),
+        ("Gravity", "g", g, "m/s²", "WorldConfig.gravity"),
+        ("Water dynamic viscosity (20 C)", "mu", 1.0e-3, "Pa·s", "Standard property; scripts/compute_nondimensional_numbers.py"),
         ("Motor drive amplitude", "A", motor.amplitude_rad, "rad", "MotorConfig.amplitude_rad"),
         ("Motor drive frequency", "f_d", motor.frequency_hz, "Hz", "MotorConfig.frequency_hz"),
-        ("Wave tilt used for Reynolds number", "theta_w", 9.5, "deg", "Observed ~9-10 deg in the resonance demo (the project notes, main.py --fluid-viz-resonance)"),
+        ("Wave tilt used for Reynolds number", "theta_w", 9.5, "deg", "Observed ~9-10 deg in the resonance demo (main.py --fluid-viz-resonance)"),
         ("Liquid damping ratio", "zeta", fluid.damping_ratio, "-", "FluidConfig.damping_ratio (Sivy et al. 2017)"),
     ]
     name_row = {}
     for i, (name, sym, val, unit, src) in enumerate(inputs, start=4):
         ws.cell(row=i, column=1, value=name).font = BLACK
-        ws.cell(row=i, column=2, value=sym).font = BLACK
+        ws.cell(row=i, column=2, value=math(SYMBOL.get(sym, sym))).font = BLACK
         c = ws.cell(row=i, column=3, value=val)
         c.font = BLUE
         ws.cell(row=i, column=4, value=unit).font = BLACK
@@ -117,7 +148,7 @@ def build() -> None:
     hc["A3"] = "1. Tank mass and inertia from its five acrylic plates"
     hc["A3"].font = BOLD
     header(hc, 4, ["Plate", "dim x (m)", "dim y (m)", "dim z (m)", "centre x (m)", "centre y (m)",
-                   "mass (kg)", "I about own centre (kg m^2)", "I about pivot O (kg m^2)"],
+                   "mass (kg)", "I about own centre (kg·m²)", "I about pivot O (kg·m²)"],
            [30, 12, 12, 12, 13, 13, 12, 18, 18])
     L, W, h, t = ref["L"], ref["W"], ref["h"], ref["t"]
     plates = [
@@ -138,10 +169,10 @@ def build() -> None:
     hc["A10"].font = BOLD
     hc["G10"] = "=SUM(G5:G9)"
     hc["I10"] = "=SUM(I5:I9)"
-    hc["A11"] = "Tank centre of mass height above pivot O, h_t (m)"
+    hc["A11"] = math("Tank centre of mass height above pivot O, h_{t} = Σ(m·y) / Σm (m)")
     hc["G11"] = "=SUMPRODUCT(G5:G9,F5:F9)/G10"
-    hc["A12"] = ("Inertia about O: I_plate = m(a^2+b^2)/12 + m*(x^2+y^2)  "
-                 "(parallel-axis theorem; rotation axis z through O)")
+    hc["A12"] = math("Plate mass: m = ρ_{t}·a·b·c.   Inertia about O: I_{O} = m(a^{2} + b^{2})/12 + m(x^{2} + y^{2})  "
+                     "(parallel-axis theorem; rotation axis z through O)", size=9, italic=True, color="666666")
     hc["A12"].font = NOTE
 
     # Housner.
@@ -149,48 +180,53 @@ def build() -> None:
     hc["A14"].font = BOLD
     header(hc, 15, ["Quantity", "Formula", "Value"], None)
     rows = [
-        ("Total water mass m (kg)", "rho*L*W*H", f"={ref['rho']}*{L}*{W}*{ref['H']}"),
-        ("Aspect ratio L/H (-)", "L/H", f"={L}/{ref['H']}"),
-        ("Impulsive mass m_i (kg)", "tanh(0.866 L/H)/(0.866 L/H) * m", "=TANH(0.866*C17)/(0.866*C17)*C16"),
-        ("Convective mass m_c (kg)", "0.264 (L/H) tanh(3.16 H/L) * m", f"=0.264*C17*TANH(3.16*{ref['H']}/{L})*C16"),
-        ("Impulsive height h_i (m)", "(0.5 - 0.09375 L/H) H  [L/H >= 1.333]",
+        ("Total water mass m (kg)", "m = ρ·L·W·H", f"={ref['rho']}*{L}*{W}*{ref['H']}"),
+        ("Aspect ratio L/H (-)", "L / H", f"={L}/{ref['H']}"),
+        ("Impulsive mass m_{i} (kg)", "m_{i} = [tanh(0.866·L/H) / (0.866·L/H)]·m", "=TANH(0.866*C17)/(0.866*C17)*C16"),
+        ("Convective mass m_{c} (kg)", "m_{c} = 0.264·(L/H)·tanh(3.16·H/L)·m", f"=0.264*C17*TANH(3.16*{ref['H']}/{L})*C16"),
+        ("Impulsive height h_{i} (m)", "h_{i} = (0.5 − 0.09375·L/H)·H   (for L/H ≥ 1.333)",
          f"=IF(C17>=1.333,0.5-0.09375*C17,0.375)*{ref['H']}"),
-        ("Convective height h_c (m)", "[1 - (cosh y - 1)/(y sinh y)] H, y = 3.16 H/L",
+        ("Convective height h_{c} (m)", "h_{c} = [1 − (cosh y − 1) / (y·sinh y)]·H,   y = 3.16·H/L",
          f"=(1-(COSH(3.16*{ref['H']}/{L})-1)/(3.16*{ref['H']}/{L}*SINH(3.16*{ref['H']}/{L})))*{ref['H']}"),
-        ("Sloshing natural frequency omega_n (rad/s)", "sqrt(3.16 g/L tanh(3.16 H/L))",
+        ("Sloshing natural frequency ω_{n} (rad/s)", "ω_{n} = √[(3.16·g/L)·tanh(3.16·H/L)]",
          f"=SQRT(3.16*{ref['g']}/{L}*TANH(3.16*{ref['H']}/{L}))"),
-        ("Sloshing natural frequency f_n (Hz)", "omega_n / 2 pi", "=C22/(2*PI())"),
-        ("Equivalent pendulum length L_p (m)", "g / omega_n^2", f"={ref['g']}/C22^2"),
-        ("Modelled mass fraction (m_i+m_c)/m (-)", "", "=(C18+C19)/C16"),
+        ("Sloshing natural frequency f_{n} (Hz)", "f_{n} = ω_{n} / 2π", "=C22/(2*PI())"),
+        ("Equivalent pendulum length L_{p} (m)", "L_{p} = g / ω_{n}^{2}", f"={ref['g']}/C22^2"),
+        ("Modelled mass fraction (-)", "(m_{i} + m_{c}) / m", "=(C18+C19)/C16"),
     ]
     for r, (q, f, val) in enumerate(rows, start=16):
-        hc.cell(row=r, column=1, value=q).font = BLACK
-        hc.cell(row=r, column=2, value=f).font = NOTE
+        hc.cell(row=r, column=1, value=math(q)).font = BLACK
+        hc.cell(row=r, column=2, value=math(f)).font = BLACK
         hc.cell(row=r, column=3, value=val).font = BLACK
-    hc.column_dimensions["B"].width = 40
+    hc.column_dimensions["B"].width = 46
 
     # Exact linear potential theory, inner length.
     hc["A27"] = "3. Exact linear potential-flow sloshing frequency (alternative analytical check)"
     hc["A27"].font = BOLD
-    hc["A28"] = "Inner tank length L_in (m)"
+    hc["A28"] = math("Inner tank length L_{in} (m)")
+    hc["B28"] = math("L_{in} = L − 2t")
     hc["C28"] = f"={L}-2*{t}"
-    hc["A29"] = "omega_1 (rad/s)"
-    hc["B29"] = "sqrt(pi g / L_in * tanh(pi H / L_in))"
-    hc["B29"].font = NOTE
+    hc["A29"] = math("First-mode frequency ω_{1} (rad/s)")
+    hc["B29"] = math("ω_{1} = √[(π·g/L_{in})·tanh(π·H/L_{in})]")
     hc["C29"] = f"=SQRT(PI()*{ref['g']}/C28*TANH(PI()*{ref['H']}/C28))"
-    hc["A30"] = "f_1 (Hz)"
+    hc["A30"] = math("First-mode frequency f_{1} (Hz)")
+    hc["B30"] = math("f_{1} = ω_{1} / 2π")
     hc["C30"] = "=C29/(2*PI())"
 
     # Non-dimensional numbers.
     hc["A32"] = "4. Non-dimensional numbers (flow regime)"
     hc["A32"].font = BOLD
-    hc["A33"] = "Peak tank angular velocity A*2*pi*f_d (rad/s)"
+    hc["A33"] = math("Peak tank angular velocity Ω_{max} (rad/s)")
+    hc["B33"] = math("Ω_{max} = 2π·A·f_{d}")
     hc["C33"] = f"={ref['A']}*2*PI()*{ref['f_d']}"
-    hc["A34"] = "Froude number Fr = theta_dot_max*(L/2)/sqrt(g H)"
+    hc["A34"] = "Froude number Fr (-)"
+    hc["B34"] = math("Fr = Ω_{max}·(L/2) / √(g·H)")
     hc["C34"] = f"=C33*({L}/2)/SQRT({ref['g']}*{ref['H']})"
-    hc["A35"] = "Wave amplitude eta_max = L_p sin(theta_w) (m)"
+    hc["A35"] = math("Wave amplitude η_{max} (m)")
+    hc["B35"] = math("η_{max} = L_{p}·sin θ_{w}")
     hc["C35"] = f"=C24*SIN(RADIANS({ref['theta_w']}))"
-    hc["A36"] = "Reynolds number Re = rho*omega_n*eta_max*L/mu"
+    hc["A36"] = "Reynolds number Re (-)"
+    hc["B36"] = math("Re = ρ·ω_{n}·η_{max}·L / μ")
     hc["C36"] = f"={ref['rho']}*C22*C35*{L}/{ref['mu']}"
     hc["A37"] = "Fr << 0.2 means small, smooth (linear) sloshing; Re ~1e4-1e5 is typical of lab-scale water sloshing."
     hc["A37"].font = NOTE
@@ -208,29 +244,29 @@ def build() -> None:
            [40, 9, 16, 14, 11, 52, 60])
     H_ = "'Hand calculations'!"
     comp = [
-        ("Tank mass m_t", "kg", f"={H_}G10", mp.mass,
+        ("Tank mass m_{t}", "kg", f"={H_}G10", mp.mass,
          "Mass the simulator gives the tank body (utilities/inertia_utils.py)",
          "Same plate model, so this checks the code's arithmetic."),
-        ("Tank centre-of-mass height above pivot h_t", "m", f"={H_}G11", mp.center_of_mass[1],
+        ("Tank centre-of-mass height above pivot h_{t}", "m", f"={H_}G11", mp.center_of_mass[1],
          "Centre of mass used by the simulator", "Positive = above the pivot: the tank is an inverted pendulum."),
-        ("Tank inertia about pivot I_O", "kg m^2", f"={H_}I10", i_o,
+        ("Tank inertia about pivot I_{O}", "kg·m²", f"={H_}I10", i_o,
          "environment/tank_dynamics.py::tank_moment_of_inertia_about_pivot", "Parallel-axis theorem, 5 plates."),
-        ("Impulsive water mass m_i", "kg", f"={H_}C18", hous.impulsive_mass,
+        ("Impulsive water mass m_{i}", "kg", f"={H_}C18", hous.impulsive_mass,
          "utilities/housner_utils.py output", "Housner / ACI 350.3-06."),
-        ("Convective (sloshing) water mass m_c", "kg", f"={H_}C19", hous.convective_mass,
+        ("Convective (sloshing) water mass m_{c}", "kg", f"={H_}C19", hous.convective_mass,
          "utilities/housner_utils.py output", "Mass of the equivalent pendulum."),
-        ("Equivalent pendulum length L_p", "m", f"={H_}C24", hous.pendulum_length,
+        ("Equivalent pendulum length L_{p}", "m", f"={H_}C24", hous.pendulum_length,
          "PendulumBackend pendulum length", ""),
         ("Sloshing frequency: pendulum model (code)", "Hz", f"={H_}C23", hous.natural_frequency_hz,
          "Frequency the fast pendulum model is built with", "Formula vs code: should match exactly."),
         ("Sloshing frequency: pendulum model (measured)", "Hz", f"={H_}C23", 1.30,
-         "FFT of the pendulum model's free oscillation (PROJECT_LOG Entry 88)",
+         "FFT of the pendulum model's free oscillation",
          "Within one FFT bin (0.1 Hz) of the calculation."),
         ("Sloshing frequency: real fluid (SPH) vs Housner", "Hz", f"={H_}C23", 1.4218,
-         "Peak-to-peak period of the real SPH fluid after a tilt kick (PROJECT_LOG Entry 95)",
+         "Peak-to-peak period of the real SPH fluid after a tilt kick",
          "Real fluid sloshes ~6% faster than the Housner pendulum predicts."),
         ("Sloshing frequency: real fluid (SPH) vs potential theory", "Hz", f"={H_}C30", 1.4218,
-         "Same SPH measurement (Entry 95)", "Exact linear theory with the inner length; within ~4%."),
+         "Same SPH measurement", "Exact linear theory with the inner length; within ~4%."),
         ("LQR closed-loop sloshing frequency", "rad/s", f"={H_}C22", 8.4406,
          "Imaginary part of the LQR closed-loop poles (python -m control.lqr_controller)",
          "Feedback barely moves the sloshing frequency, as expected."),
@@ -240,7 +276,7 @@ def build() -> None:
          "scripts/compute_nondimensional_numbers.py output", "Within the 1e4-1e5 lab-scale range."),
     ]
     for r, (q, unit, calc, sim, what, comment) in enumerate(comp, start=5):
-        cs.cell(row=r, column=1, value=q).font = BLACK
+        cs.cell(row=r, column=1, value=math(q)).font = BLACK
         cs.cell(row=r, column=2, value=unit).font = BLACK
         c = cs.cell(row=r, column=3, value=calc)
         c.font = GREEN
